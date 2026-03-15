@@ -7,6 +7,23 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      artifact_choice:
+        description: 'Choose artifact from matrix to deploy'
+        required: true
+        default: 'ubuntu-latest-3.8'
+        type: choice
+        options:
+          - ubuntu-latest-3.8
+          - ubuntu-latest-3.9
+          - windows-latest-3.8
+          - windows-latest-3.9
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   PythonVersion: 3.8
@@ -14,7 +31,11 @@ env:
 
 jobs:
   python-ci:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.8", "3.9"]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: ./src
@@ -22,10 +43,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ env.PythonVersion }}
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PythonVersion }}
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -38,33 +59,36 @@ jobs:
           python manage.py test
 
       - name: Generate Report
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.8'
         run: |
           coverage run --source='.' manage.py test
           coverage report
 
       - name: Linting
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.8'
         run: |
           flake8 . --show-source --statistics --exit-zero
 
       - name: Check Complexity
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.8'
         run: |
           flake8 . --exit-zero --max-complexity=6
 
       - name: Upload python artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: python-artifacts
+          name: python-artifacts-${{ matrix.os }}-${{ matrix.python-version }}
           path: .
 
       - name: Upload helm artifacts
-        if: github.ref_name == 'main'
+        if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: helm-artifacts
           path: ${{ github.workspace }}/helm-charts
 
       - name: Upload kind cluster artifact
-        if: github.ref_name == 'main'
+        if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: kind-cluster
@@ -76,11 +100,13 @@ jobs:
     if: ${{ github.ref_name == 'main' }}
     needs: python-ci
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - uses: actions/download-artifact@v4
       name: Download python artifacts
       with:
-        name: python-artifacts
+        name: python-artifacts-ubuntu-latest-3.8
         path: .
 
     - name: Login to Docker Hub
@@ -102,6 +128,8 @@ jobs:
     if: github.ref_name == 'main'
     name: Helm CI
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - uses: actions/download-artifact@v4
       with:
