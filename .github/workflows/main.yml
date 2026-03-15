@@ -20,7 +20,6 @@ on:
           - windows-latest-3.8
           - windows-latest-3.9
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -79,20 +78,25 @@ jobs:
         with:
           name: python-artifacts-${{ matrix.os }}-${{ matrix.python-version }}
           path: .
+          overwrite: true
 
       - name: Upload helm artifacts
-        if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest'
+        # Строго ограничиваем, чтобы только ОДНА итерация матрицы загружала этот артефакт
+        if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.8'
         uses: actions/upload-artifact@v4
         with:
           name: helm-artifacts
           path: ${{ github.workspace }}/helm-charts
+          overwrite: true
 
       - name: Upload kind cluster artifact
-        if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest'
+        # Строго ограничиваем, чтобы только ОДНА итерация матрицы загружала этот артефакт
+        if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.8'
         uses: actions/upload-artifact@v4
         with:
           name: kind-cluster
           path: ${{ github.workspace }}/cluster.yml
+          overwrite: true
 
   docker-ci:
     name: Build and Push Image
@@ -153,6 +157,7 @@ jobs:
       with:
         name: helm-package
         path: ./*.tgz
+        overwrite: true
 
   deploy-helm-dev:
     name: Deploy helm to Development
@@ -173,3 +178,4 @@ jobs:
       version: ${{ github.sha }}
       helm-values-path: ./todoapp/values/stg.yaml
       helm-release-name: todoapp-staging
+
