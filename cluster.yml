@@ -41,5 +41,3 @@ nodes:
     protocol: TCP
 # the two workers
 - role: worker
-- role: worker
-- role: worker
