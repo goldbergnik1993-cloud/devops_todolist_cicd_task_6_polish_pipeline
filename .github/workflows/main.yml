@@ -147,12 +147,21 @@ jobs:
 
     - name: Package Helm
       run: helm package ./todoapp
-
-    - name: Upload Helm Artifact
+    - name: Upload helm artifacts
+      # ДОБАВЛЯЕМ УСЛОВИЕ: загружать только один раз (на ubuntu и python 3.8)
+      if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.8'
       uses: actions/upload-artifact@v4
       with:
-        name: helm-package
-        path: ./*.tgz
+        name: helm-artifacts
+        path: ${{ github.workspace }}/helm-charts
+
+    - name: Upload kind cluster artifact
+      # ДОБАВЛЯЕМ УСЛОВИЕ: загружать только один раз
+      if: github.ref_name == 'main' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.8'
+      uses: actions/upload-artifact@v4
+      with:
+        name: kind-cluster
+        path: ${{ github.workspace }}/cluster.yml
 
   deploy-helm-dev:
     name: Deploy helm to Development
